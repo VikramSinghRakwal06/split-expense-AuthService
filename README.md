@@ -43,7 +43,7 @@ value, so no environment variables are needed to start. Flyway applies
 ./mvnw test
 ```
 
-53 tests. The integration test starts a real PostgreSQL container, so **Docker must be
+54 tests. The integration test starts a real PostgreSQL container, so **Docker must be
 running**.
 
 ### 4. Docker

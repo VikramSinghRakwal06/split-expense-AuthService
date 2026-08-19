@@ -17,7 +17,7 @@ spring:
     # Never allow a running service to drop the schema it depends on.
     clean-disabled: true
 
-payflow:
+splitexpense:
   jwt:
     secret: ${JWT_SECRET}
 
@@ -35,4 +35,4 @@ springdoc:
 logging:
   level:
     root: WARN
-    com.payflow.auth: ${LOG_LEVEL:INFO}
+    com.splitexpense.auth: ${LOG_LEVEL:INFO}

@@ -7,9 +7,9 @@ spring:
     default: dev
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/payflow_auth}
-    username: ${DB_USERNAME:payflow}
-    password: ${DB_PASSWORD:payflow}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/splitexpense_auth}
+    username: ${DB_USERNAME:splitexpense}
+    password: ${DB_PASSWORD:splitexpense}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: auth-pool
@@ -45,12 +45,12 @@ server:
     include-message: never
     include-stacktrace: never
 
-payflow:
+splitexpense:
   jwt:
     # 256-bit minimum for HS256. The dev fallback is deliberately obvious so an
     # unset JWT_SECRET in a real environment is easy to spot.
     secret: ${JWT_SECRET:dev-secret-change-me-this-must-be-at-least-32-bytes-long}
-    issuer: ${JWT_ISSUER:payflow-auth-service}
+    issuer: ${JWT_ISSUER:splitexpense-auth-service}
     access-token-expiration: ${JWT_ACCESS_TTL:15m}
     refresh-token-expiration: ${JWT_REFRESH_TTL:7d}
 
@@ -78,4 +78,4 @@ springdoc:
 logging:
   level:
     root: INFO
-    com.payflow.auth: ${LOG_LEVEL:INFO}
+    com.splitexpense.auth: ${LOG_LEVEL:INFO}
