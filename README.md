@@ -1,8 +1,9 @@
-# PayFlow — auth-service
+# SplitExpense — auth-service
 
-Owns user accounts, authentication and JWT issuance for the PayFlow wallet platform.
-One of five independent services; the other four verify this service's access tokens
-using the shared signing key, without calling back here.
+Owns user accounts, authentication and JWT issuance for SplitExpense, a Splitwise-style
+group expense-splitting platform. One of five independent services; the other four
+(`group-service`, `expense-service`, `notification-service` and the API gateway) verify
+this service's access tokens using the shared signing key, without calling back here.
 
 - **Java 21**, **Spring Boot 4.1.0** (Spring Framework 7, Spring Security 7, Hibernate 7)
 - **PostgreSQL**, schema owned by **Flyway** (Hibernate runs in `validate` mode)
@@ -15,10 +16,10 @@ using the shared signing key, without calling back here.
 ### 1. Start a database
 
 ```bash
-docker run -d --name payflow-auth-db \
-  -e POSTGRES_DB=payflow_auth \
-  -e POSTGRES_USER=payflow \
-  -e POSTGRES_PASSWORD=payflow \
+docker run -d --name splitexpense-auth-db \
+  -e POSTGRES_DB=splitexpense_auth \
+  -e POSTGRES_USER=splitexpense \
+  -e POSTGRES_PASSWORD=splitexpense \
   -p 5432:5432 postgres:16-alpine
 ```
 
@@ -43,20 +44,20 @@ value, so no environment variables are needed to start. Flyway applies
 ./mvnw test
 ```
 
-54 tests. The integration test starts a real PostgreSQL container, so **Docker must be
+58 tests. The integration test starts a real PostgreSQL container, so **Docker must be
 running**.
 
 ### 4. Docker
 
 ```bash
-docker build -t payflow/auth-service:latest .
+docker build -t splitexpense/auth-service:latest .
 
 docker run --rm -p 8081:8081 \
-  -e DB_URL=jdbc:postgresql://host.docker.internal:5432/payflow_auth \
-  -e DB_USERNAME=payflow \
-  -e DB_PASSWORD=payflow \
+  -e DB_URL=jdbc:postgresql://host.docker.internal:5432/splitexpense_auth \
+  -e DB_USERNAME=splitexpense \
+  -e DB_PASSWORD=splitexpense \
   -e JWT_SECRET="$(openssl rand -base64 48)" \
-  payflow/auth-service:latest
+  splitexpense/auth-service:latest
 ```
 
 The image defaults to `SPRING_PROFILES_ACTIVE=prod`, which has **no fallbacks** — the
@@ -68,18 +69,19 @@ four variables above are required or the container exits at startup.
 
 | Variable | Required | Dev default | Purpose |
 |---|---|---|---|
-| `DB_URL` | prod only | `jdbc:postgresql://localhost:5432/payflow_auth` | JDBC URL |
-| `DB_USERNAME` | prod only | `payflow` | Database user |
-| `DB_PASSWORD` | prod only | `payflow` | Database password |
+| `DB_URL` | prod only | `jdbc:postgresql://localhost:5432/splitexpense_auth` | JDBC URL |
+| `DB_USERNAME` | prod only | `splitexpense` | Database user |
+| `DB_PASSWORD` | prod only | `splitexpense` | Database password |
 | `JWT_SECRET` | **prod only** | `dev-secret-change-me-…` | HMAC signing key, **min 32 bytes** |
-| `JWT_ISSUER` | no | `payflow-auth-service` | `iss` claim; verified on every parse |
+| `JWT_ISSUER` | no | `splitexpense-auth-service` | `iss` claim; verified on every parse |
 | `JWT_ACCESS_TTL` | no | `15m` | Access token lifetime |
 | `JWT_REFRESH_TTL` | no | `7d` | Refresh token lifetime |
 | `SERVER_PORT` | no | `8081` | HTTP port |
 | `SPRING_PROFILES_ACTIVE` | no | `dev` | `dev` or `prod` |
-| `DB_POOL_MAX` / `DB_POOL_MIN` | no | `10` / `2` | Hikari pool size |
-| `LOG_LEVEL` | no | `DEBUG` (dev) | Level for `com.payflow.auth` |
-| `SWAGGER_UI_ENABLED` | no | `false` (prod) | Swagger UI in production |
+| `DB_POOL_MAX` / `DB_POOL_MIN` | no | `10` / `2` (dev), `20` / `5` (prod) | Hikari pool size |
+| `LOG_LEVEL` | no | `DEBUG` (dev), `INFO` (prod) | Level for `com.splitexpense.auth` |
+| `JPA_SHOW_SQL` | no | `true` (dev only) | Logs bound SQL; not read in `prod` |
+| `SWAGGER_UI_ENABLED` | no | `false` (prod only; always on in dev) | Swagger UI in production |
 
 A secret shorter than 32 bytes is rejected at startup rather than at first login.
 
@@ -88,7 +90,7 @@ A secret shorter than 32 bytes is rejected at startup rather than at first login
 ## Endpoints
 
 Base path `/api/v1/auth`. **Public:** `register`, `login`, `refresh`.
-**Authenticated:** `logout`, `me`.
+**Authenticated:** `logout`, `me`, `users`, `users/lookup`.
 
 | Method | Path | Auth | Success | Errors |
 |---|---|---|---|---|
@@ -97,6 +99,8 @@ Base path `/api/v1/auth`. **Public:** `register`, `login`, `refresh`.
 | `POST` | `/refresh` | — | `200` `AuthResponse` | `400`, `401` |
 | `POST` | `/logout` | Bearer | `204` | `401` |
 | `GET` | `/me` | Bearer | `200` `UserResponse` | `401` |
+| `GET` | `/users` | Bearer | `200` `List<PublicProfileResponse>` | `401` |
+| `GET` | `/users/lookup` | Bearer | `200` `PublicProfileResponse` | `401`, `404` |
 
 ### Register
 
@@ -104,7 +108,7 @@ Base path `/api/v1/auth`. **Public:** `register`, `login`, `refresh`.
 curl -i -X POST http://localhost:8081/api/v1/auth/register \
   -H 'Content-Type: application/json' \
   -d '{
-    "email": "ada@payflow.io",
+    "email": "ada@splitexpense.io",
     "password": "correct-horse-9",
     "fullName": "Ada Lovelace",
     "phoneNumber": "+441632960961"
@@ -114,7 +118,7 @@ curl -i -X POST http://localhost:8081/api/v1/auth/register \
 ```json
 {
   "id": "112ff3c3-29b4-4704-aa05-53ff9b155534",
-  "email": "ada@payflow.io",
+  "email": "ada@splitexpense.io",
   "fullName": "Ada Lovelace",
   "phoneNumber": "+441632960961",
   "role": "USER",
@@ -123,15 +127,15 @@ curl -i -X POST http://localhost:8081/api/v1/auth/register \
 }
 ```
 
-Emails are stored lower-cased, so `Ada@PayFlow.io` and `ada@payflow.io` are one account.
-Password must be 8–72 characters with at least one letter and one digit.
+Emails are stored lower-cased, so `Ada@SplitExpense.io` and `ada@splitexpense.io` are one
+account. Password must be 8–72 characters with at least one letter and one digit.
 
 ### Login
 
 ```bash
 curl -s -X POST http://localhost:8081/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"ada@payflow.io","password":"correct-horse-9"}'
+  -d '{"email":"ada@splitexpense.io","password":"correct-horse-9"}'
 ```
 
 ```json
@@ -140,7 +144,7 @@ curl -s -X POST http://localhost:8081/api/v1/auth/login \
   "refreshToken": "eyJhbGciOiJIUzM4NCJ9...",
   "tokenType": "Bearer",
   "expiresIn": 900,
-  "user": { "id": "112ff3c3-...", "email": "ada@payflow.io", "role": "USER" }
+  "user": { "id": "112ff3c3-...", "email": "ada@splitexpense.io", "role": "USER" }
 }
 ```
 
@@ -151,7 +155,7 @@ curl -s -X POST http://localhost:8081/api/v1/auth/login \
 ```bash
 ACCESS=$(curl -s -X POST http://localhost:8081/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"ada@payflow.io","password":"correct-horse-9"}' | jq -r .accessToken)
+  -d '{"email":"ada@splitexpense.io","password":"correct-horse-9"}' | jq -r .accessToken)
 
 curl -s http://localhost:8081/api/v1/auth/me -H "Authorization: Bearer $ACCESS"
 ```
@@ -180,6 +184,40 @@ curl -i -X POST http://localhost:8081/api/v1/auth/logout \
 `204`. Idempotent — an unknown, already-revoked or someone else's token also returns
 `204`, so the endpoint cannot be used to probe which tokens exist.
 
+### Resolve account ids to display names
+
+```bash
+curl -s "http://localhost:8081/api/v1/auth/users?ids=112ff3c3-29b4-4704-aa05-53ff9b155534,3fa85f64-5717-4562-b3fc-2c963f66afa6" \
+  -H "Authorization: Bearer $ACCESS"
+```
+
+```json
+[
+  { "id": "112ff3c3-29b4-4704-aa05-53ff9b155534", "fullName": "Ada Lovelace" }
+]
+```
+
+Lets a caller who only has a group's member ids (from `group-service`) turn them into
+something a person can read. Any authenticated caller may resolve any ids; unmatched ids
+are simply absent from the result rather than an error. The `ids` list is capped at 200
+per request — silently truncated, not rejected — since every real caller is asking about
+one group's membership, which is never remotely this large.
+
+### Resolve an email to an account id
+
+```bash
+curl -s "http://localhost:8081/api/v1/auth/users/lookup?email=ada@splitexpense.io" \
+  -H "Authorization: Bearer $ACCESS"
+```
+
+```json
+{ "id": "112ff3c3-29b4-4704-aa05-53ff9b155534", "fullName": "Ada Lovelace" }
+```
+
+Lets a group owner invite someone by the email address they know them by, rather than
+needing that person's raw account id in hand first. `404` if no account is registered
+under that email.
+
 ---
 
 ## Errors
@@ -191,7 +229,7 @@ Every failure — including ones raised inside the security filter chain — use
   "timestamp": "2026-08-10T15:02:36.241504001Z",
   "status": 409,
   "error": "Conflict",
-  "message": "An account already exists for ada@payflow.io",
+  "message": "An account already exists for ada@splitexpense.io",
   "path": "/api/v1/auth/register"
 }
 ```
@@ -227,10 +265,10 @@ rejected field at once:
 
 ### Why refresh tokens are stored when JWTs are stateless
 
-The **access token** is self-contained by design: wallet, payments, ledger and
-notifications verify it with the signing key alone, no round trip to this service. That
-independence is what makes the platform scale — and it means an access token **cannot be
-revoked**, only expired. Hence the 15-minute lifetime.
+The **access token** is self-contained by design: `group-service`, `expense-service`,
+`notification-service` and the API gateway verify it with the signing key alone, no round
+trip to this service. That independence is what makes the platform scale — and it means
+an access token **cannot be revoked**, only expired. Hence the 15-minute lifetime.
 
 The **refresh token** has the opposite requirement. Logout, a password change or a stolen
 device must end a session immediately, which is impossible without server-side state. So
@@ -280,12 +318,28 @@ to anyone who typed a wrong password against it.
 > `handleAuthentication` in `GlobalExceptionHandler` to treat `DisabledException`
 > separately. That is a deliberate trade of enumeration resistance for clearer UX.
 
+### Why the account-lookup endpoints are this narrow
+
+`group-service` and `expense-service` know their members only as UUIDs — a group's
+membership list, a bill's payers — and need a display name, but auth-service owns the
+only table with one. `GET /users` and `GET /users/lookup` exist to answer exactly that,
+and both return `PublicProfileResponse`: an id and a full name, nothing else.
+
+That is deliberately no wider than a claim any authenticated account already has: `GET
+/users` reveals nothing a group-mate couldn't already infer from `group-service` listing
+raw member ids to everyone in the group, and `GET /users/lookup` reveals nothing beyond
+"an account exists at this address and here is its name" — the minimum a group owner
+needs to turn an email into an id they can hand to `group-service`'s add-member endpoint.
+What neither endpoint ever reveals is email (for the id lookup), phone, role or account
+status — the fields that make `UserResponse` the "read your own profile back to you"
+shape and not a general-purpose directory.
+
 ---
 
 ## Layout
 
 ```
-com.payflow.auth
+com.splitexpense.auth
 ├── config/       JwtProperties, SecurityConfig, OpenApiConfig
 ├── controller/   AuthController
 ├── service/      AuthService
@@ -293,7 +347,7 @@ com.payflow.auth
 ├── entity/       User, RefreshToken, Role
 ├── dto/
 │   ├── request/  RegisterRequest, LoginRequest, RefreshTokenRequest
-│   └── response/ UserResponse, AuthResponse, ErrorResponse
+│   └── response/ UserResponse, PublicProfileResponse, AuthResponse, ErrorResponse
 ├── mapper/       UserMapper
 ├── security/     JwtService, JwtAuthenticationFilter, UserPrincipal,
 │                 CustomUserDetailsService, JwtAuthenticationEntryPoint,
