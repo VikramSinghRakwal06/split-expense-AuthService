@@ -23,5 +23,5 @@ springdoc:
 
 logging:
   level:
-    com.payflow.auth: ${LOG_LEVEL:DEBUG}
+    com.splitexpense.auth: ${LOG_LEVEL:DEBUG}
     org.springframework.security: INFO

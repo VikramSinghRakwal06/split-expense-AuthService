@@ -1,0 +1,44 @@
+package com.splitexpense.auth.repository;
+
+import com.splitexpense.auth.entity.User;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+/**
+ * Persistence access for {@link User}. Email is the login identifier, so it is the
+ * lookup key here rather than the surrogate id.
+ */
+@Repository
+public interface UserRepository extends JpaRepository<User, UUID> {
+
+    /**
+     * @param email address to look up, matched exactly
+     * @return the user, if one exists with that email
+     */
+    Optional<User> findByEmail(String email);
+
+    /**
+     * Pre-flight check for registration. Cheaper than loading the row, but note it is
+     * advisory only: the {@code uq_users_email} constraint is what actually guarantees
+     * uniqueness under concurrent registrations.
+     *
+     * @param email address to test
+     * @return {@code true} if the email is already taken
+     */
+    boolean existsByEmail(String email);
+
+    /**
+     * Backs the batch public-profile lookup. Accounts that don't exist (or never did) are
+     * simply absent from the result rather than raising an error — a stale group member
+     * list naming a deleted account is a display concern for the caller, not this
+     * service's to reject.
+     *
+     * @param ids account identifiers to resolve
+     * @return the matching accounts, in no guaranteed order
+     */
+    List<User> findByIdIn(Collection<UUID> ids);
+}

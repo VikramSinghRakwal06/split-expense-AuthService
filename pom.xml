@@ -8,11 +8,11 @@
 		<version>4.1.0</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.payflow</groupId>
+	<groupId>com.splitexpense</groupId>
 	<artifactId>auth-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>auth-service</name>
-	<description>PayFlow authentication service: users, credentials and JWT issuance</description>
+	<description>SplitExpense authentication service: users, credentials and JWT issuance</description>
 
 	<properties>
 		<java.version>21</java.version>

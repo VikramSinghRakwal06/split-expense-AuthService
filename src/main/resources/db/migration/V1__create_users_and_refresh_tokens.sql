@@ -1,4 +1,4 @@
--- PayFlow auth-service: initial schema.
+-- SplitExpense auth-service: initial schema.
 -- Owns users, their credentials, and the refresh tokens issued to them.
 
 CREATE TABLE users (
